@@ -17,7 +17,7 @@ Premium dark casino-floor marketing site for LS Gaming, an Illinois video gaming
 
 1. Push everything in this folder to the repo root.
 2. **Settings → Pages → Source: Deploy from a branch → Branch: `main` / `/(root)` → Save.**
-3. Live at `https://<user-or-org>.github.io/<repo-name>/` within ~1 min.
+3. Live at https://assyrian-capital.github.io/lsgaming-site/ within ~1 min.
 
 The `.nojekyll` file is required so GitHub Pages doesn't strip the JSX files.
 
