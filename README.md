@@ -1,32 +1,33 @@
 # LS Gaming — Marketing Site
 
-Premium dark casino-floor marketing site for LS Gaming, an Illinois video gaming terminal operator. Single-page React app with hash-based routing across 11 pages (home, about, services, games, locations, partners, player info, FAQ, careers, news, contact).
+Premium dark casino-floor marketing site for LS Gaming, an Illinois video gaming terminal operator. Single-page React app with hash-based routing across 11 pages.
+
+## Files
+
+- `index.html` — shell, loads everything
+- `styles.css` — design system (colors, type, components)
+- `components.jsx` — reusable: SlotMachine, IllinoisMap, PartnerForm, Carousel, FAQItem, Counter, Reveal
+- `pages-main.jsx` — Home, About, Services, Games
+- `pages-secondary.jsx` — Locations, Partners, Player Info, FAQ
+- `pages-info.jsx` — Careers, News, Contact
+- `app.jsx` — router, nav, footer (entry point)
+- `assets/lsg-logo.webp`
 
 ## Deploy to GitHub Pages
 
-1. Create a new repository (or use an existing one), e.g. `lsgaming-site`.
-2. Upload **everything in this folder** to the repo root — `index.html`, `.nojekyll`, and this README.
-3. In the repo on GitHub: **Settings → Pages → Source: Deploy from a branch → Branch: `main` (or `master`) / root → Save.**
-4. Wait ~1 minute. Your site will be live at https://assyrian-capital.github.io/lsgaming-site/.
+1. Push everything in this folder to the repo root.
+2. **Settings → Pages → Source: Deploy from a branch → Branch: `main` / `/(root)` → Save.**
+3. Live at `https://<user-or-org>.github.io/<repo-name>/` within ~1 min.
 
-For a custom domain (e.g. `lsgaming.com`), add a `CNAME` file with the bare domain (one line, no protocol) to this folder and configure DNS A records pointing to GitHub Pages IPs:
-
-```
-185.199.108.153
-185.199.109.153
-185.199.110.153
-185.199.111.153
-```
-
-## What's in `index.html`
-
-A single self-contained file: all JSX, CSS, fonts, and the logo image are inlined. No build step. Just upload and serve.
+The `.nojekyll` file is required so GitHub Pages doesn't strip the JSX files.
 
 ## Local preview
-
-Open `index.html` in any modern browser, or run any static server in this folder:
 
 ```bash
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
+
+## How it works
+
+JSX is transpiled in the browser by Babel-standalone (pinned versions in `index.html`). No build step required — this is intentional so the site can be edited directly. For a faster production build, you'd want to precompile the JSX with Babel ahead of time and minify, but the current approach trades ~300ms of first-paint delay for editability.
