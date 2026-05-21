@@ -985,10 +985,11 @@ p { line-height: 1.6; color: var(--cream-dim); text-wrap: pretty; }
 }
 .map {
   position: relative;
-  aspect-ratio: 252 / 408;
   width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
+  height: clamp(380px, 60vw, 620px);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
 }
 .map svg {
   width: 100%;

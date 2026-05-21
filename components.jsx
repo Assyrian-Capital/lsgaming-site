@@ -302,197 +302,202 @@ function Reveal({ children, delay = 0, as = "div", className = "", ...rest }) {
    Illinois map with venue pins
    ========================================================= */
 /*
-  Illinois map — detailed outline built from real lat/lon vertices
-  along the actual state boundary (Census TIGER simplified, public domain).
-  Projection: x = (lon + 91.5) * 50,  y = (42.5 - lat) * 69
-  Western border = Mississippi River (wavy: Alton, Quincy, Quad Cities bends).
-  Southern border = Ohio River to Cairo. Eastern = Lake Michigan + Wabash.
+  Illinois map — real OpenStreetMap data via Leaflet (CartoDB Dark Matter).
+  Open-source, free, no API key. Venues plotted at real lat/lon.
 */
 const VENUES = [
-  // x, y are projected SVG coordinates
-  { id: 1,  name: "Briar Patch Tavern",      city: "Chicago",     x: 193, y:  43 },
-  { id: 2,  name: "Lincoln Park Pub",        city: "Chicago",     x: 194, y:  40 },
-  { id: 3,  name: "Riverside Grill",         city: "Aurora",      x: 159, y:  51 },
-  { id: 4,  name: "Iron Horse Saloon",       city: "Joliet",      x: 171, y:  68 },
-  { id: 5,  name: "Stockyard Bar",           city: "Rockford",    x: 121, y:  18 },
-  { id: 6,  name: "Prairie Stop",            city: "Peoria",      x:  96, y: 125 },
-  { id: 7,  name: "Capitol Tap",             city: "Springfield", x:  93, y: 188 },
-  { id: 8,  name: "Quad Cities Club",        city: "Moline",      x:  56, y:  70 },
-  { id: 9,  name: "Levee Lounge",            city: "Alton",       x:  78, y: 251 },
-  { id: 10, name: "Mound City Saloon",       city: "Cairo",       x: 118, y: 374 },
-  { id: 11, name: "Cornbelt Bar",            city: "Bloomington", x: 126, y: 139 },
-  { id: 12, name: "Champaign Social",        city: "Champaign",   x: 163, y: 164 },
-  { id: 13, name: "Decatur Den",             city: "Decatur",     x: 128, y: 183 },
-  { id: 14, name: "Carbondale Tap",          city: "Carbondale",  x: 114, y: 326 },
-  { id: 15, name: "Galena Gold Co.",         city: "Galena",      x:  55, y:  10 },
+  { id: 1,  name: "Briar Patch Tavern",      city: "Chicago",     lat: 41.8819, lng: -87.6420 },
+  { id: 2,  name: "Lincoln Park Pub",        city: "Chicago",     lat: 41.9215, lng: -87.6534 },
+  { id: 3,  name: "Riverside Grill",         city: "Aurora",      lat: 41.7606, lng: -88.3201 },
+  { id: 4,  name: "Iron Horse Saloon",       city: "Joliet",      lat: 41.5250, lng: -88.0817 },
+  { id: 5,  name: "Stockyard Bar",           city: "Rockford",    lat: 42.2711, lng: -89.0940 },
+  { id: 6,  name: "Prairie Stop",            city: "Peoria",      lat: 40.6936, lng: -89.5890 },
+  { id: 7,  name: "Capitol Tap",             city: "Springfield", lat: 39.7817, lng: -89.6501 },
+  { id: 8,  name: "Quad Cities Club",        city: "Moline",      lat: 41.5067, lng: -90.5151 },
+  { id: 9,  name: "Levee Lounge",            city: "Alton",       lat: 38.8906, lng: -90.1843 },
+  { id: 10, name: "Mound City Saloon",       city: "Cairo",       lat: 37.0053, lng: -89.1764 },
+  { id: 11, name: "Cornbelt Bar",            city: "Bloomington", lat: 40.4842, lng: -88.9937 },
+  { id: 12, name: "Champaign Social",        city: "Champaign",   lat: 40.1164, lng: -88.2434 },
+  { id: 13, name: "Decatur Den",             city: "Decatur",     lat: 39.8403, lng: -88.9548 },
+  { id: 14, name: "Carbondale Tap",          city: "Carbondale",  lat: 37.7273, lng: -89.2168 },
+  { id: 15, name: "Galena Gold Co.",         city: "Galena",      lat: 42.4167, lng: -90.4287 },
 ];
 
-/* Illinois outline. Clockwise from NW corner (Galena, 42.50N -90.64W).
-   N border (WI): flat. E border: Lake Michigan -> straight south down IN -> Wabash curve.
-   S border: Ohio River, wavy SW to Cairo tip. W border: Mississippi River,
-   smooth gently-wavy near-vertical line back up to NW (no notches). */
-const IL_PATH = `
-  M 43 0
-  L 185 0
-  L 185 30
-  L 194 43
-  L 199 55
-  L 199 100
-  L 199 160
-  L 199 220
-  L 198 234
-  L 193 258
-  L 184 280
-  L 180 296
-  L 178 312
-  L 174 318
-  L 162 332
-  L 150 348
-  L 138 360
-  L 129 366
-  L 122 372
-  L 118 376
-  L 116 380
-  L 108 360
-  L 100 338
-  L 92 316
-  L 85 294
-  L 78 272
-  L 72 250
-  L 66 226
-  L 60 202
-  L 54 178
-  L 50 154
-  L 48 130
-  L 46 106
-  L 44 82
-  L 44 58
-  L 43 34
-  Z
-`.replace(/\s+/g, " ").trim();
+/* Load Leaflet from CDN once. Resolves when L is ready. */
+let _leafletPromise = null;
+function loadLeaflet() {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.L) return Promise.resolve(window.L);
+  if (_leafletPromise) return _leafletPromise;
+
+  _leafletPromise = new Promise((resolve, reject) => {
+    // CSS
+    if (!document.querySelector('link[data-leaflet="1"]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
+      link.crossOrigin = "";
+      link.setAttribute("data-leaflet", "1");
+      document.head.appendChild(link);
+    }
+    // JS
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+    script.crossOrigin = "";
+    script.onload = () => resolve(window.L);
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+  return _leafletPromise;
+}
 
 function IllinoisMap() {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
   const [active, setActive] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadLeaflet().then((L) => {
+      if (cancelled || !containerRef.current || mapRef.current) return;
+
+      const map = L.map(containerRef.current, {
+        center: [40.0, -89.2],
+        zoom: 6,
+        scrollWheelZoom: false,
+        zoomControl: true,
+        attributionControl: false,
+      });
+      mapRef.current = map;
+
+      L.control.attribution({ prefix: false }).addTo(map);
+
+      // CartoDB Dark Matter — free, no key, OSM data, dark theme
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        {
+          subdomains: "abcd",
+          maxZoom: 19,
+          attribution:
+            '\u00a9 <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors \u00a9 <a href="https://carto.com/attributions">CARTO</a>',
+        }
+      ).addTo(map);
+
+      // Fit to Illinois bounds (rough)
+      map.fitBounds([
+        [36.97, -91.6],
+        [42.51, -87.4],
+      ], { padding: [10, 10] });
+
+      // Custom gold pin icon (SVG)
+      const makePinIcon = (highlight) => L.divIcon({
+        className: "",
+        html: `
+          <div style="position:relative;width:18px;height:18px;">
+            ${highlight ? `<div style="position:absolute;inset:-10px;border-radius:50%;background:radial-gradient(circle, rgba(212,175,55,0.5) 0%, transparent 70%);animation:lsMapPulse 1.6s infinite;"></div>` : ""}
+            <div style="
+              position:absolute;inset:0;border-radius:50%;
+              background: radial-gradient(circle at 35% 30%, #f7e399 0%, #d4af37 55%, #8a6a18 100%);
+              border: 2px solid ${highlight ? "#f7e399" : "#0a0806"};
+              box-shadow: 0 0 0 2px rgba(0,0,0,0.6), 0 2px 8px rgba(212,175,55,0.6);
+            "></div>
+            <div style="
+              position:absolute;top:5px;left:5px;width:8px;height:8px;border-radius:50%;
+              background: ${highlight ? "#c8102e" : "transparent"};
+            "></div>
+          </div>
+        `,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      });
+
+      VENUES.forEach((v) => {
+        const marker = L.marker([v.lat, v.lng], {
+          icon: makePinIcon(false),
+          riseOnHover: true,
+        }).addTo(map);
+
+        marker.bindPopup(
+          `<div style="font-family: Antonio, sans-serif; padding: 4px 2px;">
+            <div style="font-size:14px; letter-spacing:0.08em; text-transform:uppercase; color:#f7e399; font-weight:700;">${v.name}</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.15em; color:#8b8478; text-transform:uppercase; margin-top:2px;">${v.city}, IL</div>
+          </div>`,
+          { className: "ls-popup", closeButton: false, offset: [0, -6] }
+        );
+
+        marker.on("click", () => {
+          setActive(v.id);
+          // refresh icon
+          VENUES.forEach((vv, i) => {});
+        });
+        marker.on("mouseover", () => marker.openPopup());
+        marker.on("mouseout", () => marker.closePopup());
+      });
+
+      // Add pulse keyframes once
+      if (!document.getElementById("ls-map-anim")) {
+        const style = document.createElement("style");
+        style.id = "ls-map-anim";
+        style.textContent = `
+          @keyframes lsMapPulse {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.4); opacity: 0; }
+          }
+          .leaflet-popup-content-wrapper {
+            background: #0a0806 !important;
+            color: #f4eee0 !important;
+            border: 1px solid #d4af37;
+            border-radius: 4px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.8) !important;
+          }
+          .leaflet-popup-tip {
+            background: #0a0806 !important;
+            border: 1px solid #d4af37;
+          }
+          .leaflet-popup-content {
+            margin: 10px 14px !important;
+          }
+          .leaflet-control-attribution {
+            background: rgba(10,8,6,0.85) !important;
+            color: #5a554d !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 9px !important;
+          }
+          .leaflet-control-attribution a {
+            color: #8b8478 !important;
+          }
+          .leaflet-control-zoom a {
+            background: #1a1612 !important;
+            color: #d4af37 !important;
+            border: 1px solid #2a2a2a !important;
+          }
+          .leaflet-control-zoom a:hover {
+            background: #2a1f0e !important;
+            color: #f7e399 !important;
+          }
+          .leaflet-container {
+            background: #0a0806 !important;
+            border-radius: 8px;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="map-wrap">
-      <div className="map">
-        <svg viewBox="-16 -16 252 408" preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <linearGradient id="ilFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#1f1a13" />
-              <stop offset="1" stopColor="#0a0806" />
-            </linearGradient>
-            <linearGradient id="ilStroke" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#f4d77a" stopOpacity="0.9" />
-              <stop offset="1" stopColor="#8a6a18" stopOpacity="0.5" />
-            </linearGradient>
-            <pattern id="ilDots" width="6" height="6" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="0.5" fill="rgba(212, 175, 55, 0.22)" />
-            </pattern>
-            <filter id="ilGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" />
-            </filter>
-            <radialGradient id="pinGold" cx="0.5" cy="0.5" r="0.5">
-              <stop offset="0" stopColor="#f7e399" />
-              <stop offset="0.6" stopColor="#d4af37" />
-              <stop offset="1" stopColor="#8a6a18" />
-            </radialGradient>
-            <radialGradient id="pinRed" cx="0.5" cy="0.5" r="0.5">
-              <stop offset="0" stopColor="#e63950" />
-              <stop offset="0.6" stopColor="#c8102e" />
-              <stop offset="1" stopColor="#7a0a1f" />
-            </radialGradient>
-          </defs>
-
-          {/* soft glow behind the state */}
-          <path d={IL_PATH} fill="rgba(212, 175, 55, 0.08)" filter="url(#ilGlow)" />
-
-          {/* state fill */}
-          <path d={IL_PATH} fill="url(#ilFill)" stroke="url(#ilStroke)" strokeWidth="1" strokeLinejoin="round" />
-          {/* dot texture clipped to state */}
-          <path d={IL_PATH} fill="url(#ilDots)" />
-
-          {/* Lake Michigan (east of state, NE) */}
-          <path
-            d="M 185 -16 L 236 -16 L 236 120 L 210 100 Q 200 75 199 55 L 194 43 L 185 30 Z"
-            fill="rgba(70, 100, 140, 0.25)"
-            stroke="rgba(120, 160, 200, 0.32)"
-            strokeWidth="0.6"
-          />
-          <text x="216" y="50" fill="rgba(160, 195, 230, 0.6)" fontSize="3.6" fontFamily="JetBrains Mono, monospace" letterSpacing="0.6" textAnchor="middle">LAKE</text>
-          <text x="216" y="58" fill="rgba(160, 195, 230, 0.6)" fontSize="3.6" fontFamily="JetBrains Mono, monospace" letterSpacing="0.6" textAnchor="middle">MICHIGAN</text>
-
-          {/* Neighbor labels (offset OUTSIDE the state shape) */}
-          <text x="115" y="-8" fill="rgba(140, 132, 120, 0.5)" fontSize="3.6" fontFamily="JetBrains Mono, monospace" letterSpacing="0.7" textAnchor="middle">WISCONSIN</text>
-          <text x="-10" y="100" fill="rgba(140, 132, 120, 0.45)" fontSize="3.4" fontFamily="JetBrains Mono, monospace" letterSpacing="0.6" textAnchor="middle" transform="rotate(-90, -10, 100)">IOWA</text>
-          <text x="-10" y="240" fill="rgba(140, 132, 120, 0.45)" fontSize="3.4" fontFamily="JetBrains Mono, monospace" letterSpacing="0.6" textAnchor="middle" transform="rotate(-90, -10, 240)">MISSOURI</text>
-          <text x="230" y="220" fill="rgba(140, 132, 120, 0.45)" fontSize="3.4" fontFamily="JetBrains Mono, monospace" letterSpacing="0.6" textAnchor="middle" transform="rotate(90, 230, 220)">INDIANA</text>
-          <text x="150" y="396" fill="rgba(140, 132, 120, 0.45)" fontSize="3.4" fontFamily="JetBrains Mono, monospace" letterSpacing="0.6" textAnchor="middle">KENTUCKY</text>
-
-          {/* HQ marker — Joliet */}
-          <g transform="translate(171, 68)">
-            <circle r="6" fill="none" stroke="rgba(212, 175, 55, 0.4)" strokeWidth="0.4">
-              <animate attributeName="r" from="3" to="10" dur="2.4s" repeatCount="indefinite" />
-              <animate attributeName="opacity" from="0.6" to="0" dur="2.4s" repeatCount="indefinite" />
-            </circle>
-          </g>
-
-          {/* Pins */}
-          {VENUES.map(v => {
-            const isActive = active === v.id;
-            return (
-              <g
-                key={v.id}
-                transform={`translate(${v.x}, ${v.y})`}
-                style={{ cursor: "pointer" }}
-                onClick={() => setActive(isActive ? null : v.id)}
-              >
-                {isActive && (
-                  <>
-                    <circle r="1.5" fill="rgba(200,16,46,0.6)">
-                      <animate attributeName="r" from="1.5" to="8" dur="1.6s" repeatCount="indefinite" />
-                      <animate attributeName="opacity" from="0.7" to="0" dur="1.6s" repeatCount="indefinite" />
-                    </circle>
-                  </>
-                )}
-                <circle r={isActive ? 3.6 : 2.4} fill={isActive ? "url(#pinGold)" : "url(#pinRed)"} stroke="#0a0806" strokeWidth="0.5" />
-                <circle r={isActive ? 3.6 : 2.4} fill="none" stroke={isActive ? "#f7e399" : "rgba(244,215,122,0.55)"} strokeWidth="0.35" />
-                {/* invisible hit target */}
-                <circle r="8" fill="transparent" />
-              </g>
-            );
-          })}
-
-          {/* Tooltip — drawn as SVG so it always aligns */}
-          {active != null && (() => {
-            const v = VENUES.find(x => x.id === active);
-            if (!v) return null;
-            const above = v.y > 60;
-            const ox = Math.max(40, Math.min(160, v.x));
-            const oy = above ? v.y - 14 : v.y + 14;
-            const text1 = v.name.toUpperCase();
-            const text2 = `${v.city.toUpperCase()}, IL`;
-            const w = Math.max(text1.length, text2.length) * 1.8 + 14;
-            return (
-              <g style={{ pointerEvents: "none" }}>
-                <rect
-                  x={ox - w / 2}
-                  y={oy - (above ? 12 : 0)}
-                  width={w}
-                  height="12"
-                  rx="1.5"
-                  fill="#0a0806"
-                  stroke="#d4af37"
-                  strokeWidth="0.4"
-                />
-                <text x={ox} y={oy - (above ? 6 : -6)} textAnchor="middle" fill="#f4d77a" fontSize="3.2" fontFamily="Antonio, sans-serif" letterSpacing="0.5">{text1}</text>
-                <text x={ox} y={oy - (above ? 2 : -10)} textAnchor="middle" fill="#8b8478" fontSize="2.2" fontFamily="JetBrains Mono, monospace" letterSpacing="0.3">{text2}</text>
-              </g>
-            );
-          })()}
-        </svg>
-      </div>
+      <div className="map" ref={containerRef} />
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24, gap: 16, flexWrap: "wrap" }}>
         <div>
